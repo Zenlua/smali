@@ -41,7 +41,7 @@ jobs:
       run: |
         ./gradlew :baksmali:proguard
         ./gradlew :smali:proguard
-        ./gradlew :dexlib2:assemble
+        ./gradlew :dexlib2:build
         
         
       
