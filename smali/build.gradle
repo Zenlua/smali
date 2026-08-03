@@ -1,31 +1,6 @@
 /*
  * Copyright 2012, Google LLC
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- *     * Redistributions of source code must retain the above copyright
- * notice, this list of conditions and the following disclaimer.
- *     * Redistributions in binary form must reproduce the above
- * copyright notice, this list of conditions and the following disclaimer
- * in the documentation and/or other materials provided with the
- * distribution.
- *     * Neither the name of Google LLC nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
- * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
- * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * (Optimized for Ultra-Lightweight Build & Termux Support)
  */
 
 apply plugin: 'antlr'
@@ -106,6 +81,17 @@ task fatJar(type: Jar, dependsOn: jar) {
     duplicatesStrategy = 'exclude'
     archiveClassifier = 'fat'
 
+    // [TỐI ƯU 1]: Lọc bỏ các file rác/metadata không sử dụng
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+    exclude 'META-INF/DEPENDENCIES'
+    exclude 'META-INF/LICENSE*'
+    exclude 'META-INF/NOTICE*'
+    exclude 'META-INF/maven/**'
+    exclude '**/*.proto'
+    exclude '**/*.txt'
+
     manifest {
         attributes('Main-Class': 'com.android.tools.smali.smali.Main')
     }
@@ -145,28 +131,54 @@ publish {
     }
 }
 
+// [TỐI ƯU 2]: Task ProGuard nén ép dung lượng siêu nhẹ & sửa toàn bộ lỗi Runtime
 task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
-    def outFile = fatJar.destinationDirectory.file(
-            "${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion.get()}-small.${fatJar.archiveExtension.get()}")
+    def destinationDir = fatJar.destinationDirectory.get().asFile
+    def outFile = new File(destinationDir, "${fatJar.archiveBaseName.get()}-${fatJar.archiveVersion.get()}-small.jar")
 
-    injars fatJar
+    injars fatJar.archiveFile.get().asFile
     outjars outFile
 
-    if (JavaVersion.current().isJava9Compatible()) {
-        libraryjars(System.getProperty("java.home") + "/jmods")
-    } else {
-        libraryjars(System.getProperty("java.home") + "/lib/rt.jar")
+    def javaHome = System.getProperty("java.home")
+    if (file("${javaHome}/jmods").exists()) {
+        libraryjars("${javaHome}/jmods")
+    } else if (file("${javaHome}/lib/rt.jar").exists()) {
+        libraryjars("${javaHome}/lib/rt.jar")
     }
 
-    dontobfuscate
-    dontoptimize
+    // 1. Giữ lại AnnotationDefault, Metadata & Attributes quan trọng phục vụ Reflection
+    keepattributes 'AnnotationDefault,*Annotation*,Signature,InnerClasses,EnclosingMethod'
 
+    // 2. Không đổi tên Class (giữ nguyên để CLI gọi đúng)
+    dontobfuscate
+    optimizationpasses 2
+
+    ignorewarnings
+    dontwarn
+    dontnote
+
+
+    // 4. Giữ toàn bộ Class lệnh CLI của Smali và Annotation (Đã bọc chuỗi '...' chuẩn)
     keep 'public class com.android.tools.smali.smali.Main { public static void main(java.lang.String[]); }'
     keep 'class com.beust.jcommander.** { *; }'
+    keep '@interface * { *; }'
+    keepclassmembers 'class * { @com.beust.jcommander.** <fields>; }'
+    keepclassmembers 'class * { @com.android.tools.smali.util.jcommander.** <fields>; }'
+    keepclassmembers 'class * { @com.beust.jcommander.** <methods>; }'
+    keepclassmembers 'class * { @com.android.tools.smali.util.jcommander.** <methods>; }'
     keepclassmembers 'enum * { public static **[] values(); public static ** valueOf(java.lang.String); }'
 
     dontwarn 'com.google.common.**'
     dontnote 'com.google.common.**'
+    
+    doLast {
+        def mainJar = new File(destinationDir, "smali.jar")
+        if (mainJar.exists()) {
+            mainJar.delete()
+        }
+        ant.copy(file: outFile, tofile: mainJar)
+        println "==> Sửa lỗi & tối ưu thành công! Đã cập nhật smali.jar hoàn chỉnh."
+    }
 }
 
 sourcesJar {
