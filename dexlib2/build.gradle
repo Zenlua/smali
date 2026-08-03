@@ -70,6 +70,7 @@ private static void fromNetworkByteOrder(long value, byte[] dest, int destIndex)
 }
 
 plugins {
+  id("java-library")
   id("org.spdx.sbom") version "0.8.0"
 }
 
@@ -104,6 +105,27 @@ dependencies {
     accessorTestGenerator project('accessorTestGenerator')
 
     dx depends.dx
+}
+
+// Cấu hình định danh tên file dexlib2.jar
+jar {
+    archiveFileName = 'dexlib2.jar'
+    manifest {
+        attributes(
+            'Implementation-Title': 'dexlib2',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+// Cấu hình task Fat JAR (Đã tích hợp sẵn Guava + FindBugs)
+task fatJar(type: Jar) {
+    archiveFileName = 'dexlib2-fat.jar'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    with jar
 }
 
 // You must manually execute this task to regenerate SyntheticAccessorFSM.java, after modifying the ragel file
