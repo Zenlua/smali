@@ -60,5 +60,5 @@ jobs:
         path: |
           /home/runner/work/smali/smali/*/build/libs/smali.jar
           /home/runner/work/smali/smali/*/build/libs/baksmali.jar
-          /home/runner/work/smali/smali/*/build/libs/*.jar
+          /home/runner/work/smali/smali/*/build/libs/dexlib2.jar
           
