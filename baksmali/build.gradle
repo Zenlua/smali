@@ -102,7 +102,7 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
 
     // 2. Không đổi tên Class
     dontobfuscate
-    optimizationpasses 2
+    dontoptimize
     ignorewarnings
     dontwarn
     dontnote
