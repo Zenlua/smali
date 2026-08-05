@@ -149,16 +149,15 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
     // 1. Giữ lại AnnotationDefault, Metadata & Attributes quan trọng phục vụ Reflection
     keepattributes 'AnnotationDefault,*Annotation*,Signature,InnerClasses,EnclosingMethod'
 
-    // 2. Không đổi tên Class (giữ nguyên để CLI gọi đúng)
+    // 2. Tắt đổi tên và TẮT LUÔN tối ưu hóa để không làm hỏng cấu trúc dexlib2
     dontobfuscate
-    optimizationpasses 2
+    dontoptimize  // <-- THÊM DÒNG NÀY ĐỂ KHẮC PHỤC LỖI
 
     ignorewarnings
     dontwarn
     dontnote
 
-
-    // 4. Giữ toàn bộ Class lệnh CLI của Smali và Annotation (Đã bọc chuỗi '...' chuẩn)
+    // 4. Giữ toàn bộ Class lệnh CLI của Smali và Annotation
     keep 'public class com.android.tools.smali.smali.Main { public static void main(java.lang.String[]); }'
     keep 'class com.beust.jcommander.** { *; }'
     keep '@interface * { *; }'
@@ -180,6 +179,7 @@ task proguard(type: proguard.gradle.ProGuardTask, dependsOn: fatJar) {
         println "==> Sửa lỗi & tối ưu thành công! Đã cập nhật smali.jar hoàn chỉnh."
     }
 }
+
 
 sourcesJar {
     duplicatesStrategy = DuplicatesStrategy.INCLUDE
